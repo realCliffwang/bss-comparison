@@ -122,3 +122,8 @@ Desktop.ini
 # Project specific
 config_local.yaml
 config_local.json
+
+# Agent / design docs
+AGENTS.md
+BSS-TEST-REFACTOR-DESIGN.md
+docs/
