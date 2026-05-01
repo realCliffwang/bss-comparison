@@ -4,7 +4,7 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "bss-test"
-version = "0.2.0"
+version = "0.3.0"
 description = "Bearing Fault Diagnosis with Blind Source Separation"
 readme = "README.md"
 license = {text = "MIT"}
@@ -85,11 +85,10 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["src"]
+source = ["src/bss_test"]
 omit = [
     "tests/*",
-    "src/third_party/*",
-    "src/dl_classifier.py",
+    "src/bss_test/tfa/emd.py",
 ]
 
 [tool.coverage.report]

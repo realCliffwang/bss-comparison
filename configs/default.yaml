@@ -1,0 +1,28 @@
+# 默认配置
+name: default_experiment
+data_dir: data
+output_dir: outputs
+
+preprocess:
+  detrend: true
+  bandpass: [100, 5000]
+  normalize: zscore
+  resample_fs: null
+
+tfa:
+  method: cwt
+  wavelet: cmor1.5-1.0
+  n_bands: 20
+  freq_range: [100, 5000]
+  mode: single_channel_expansion
+
+bss:
+  method: SOBI
+  n_sources: 5
+  n_lags: 50
+
+feature_freqs:
+  BPFO: null
+  BPFI: null
+  BSF: null
+  FTF: null

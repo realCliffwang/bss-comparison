@@ -72,19 +72,19 @@ clean:
 
 # Running experiments
 run-cwru:
-	python main_cwru.py
+	python experiments/single/cwru.py
 
 run-phm:
-	python main_phm_milling.py
+	python experiments/single/phm_milling.py
 
 run-nasa:
-	python main_nasa_milling.py
+	python experiments/single/nasa_milling.py
 
 run-comparison:
-	python generate_comparison_report.py
+	python experiments/comparison/bss_methods.py
 
 run-summary:
-	python generate_summary.py
+	python experiments/reports/summary.py
 
 run-all: run-cwru run-phm run-nasa run-comparison
 

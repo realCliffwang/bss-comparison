@@ -1,0 +1,26 @@
+# CWRU 轴承故障诊断配置
+name: cwru_experiment
+data_dir: data/cwru
+output_dir: outputs/cwru
+
+preprocess:
+  detrend: true
+  bandpass: [100, 5000]
+  normalize: zscore
+
+tfa:
+  method: cwt
+  wavelet: cmor1.5-1.0
+  n_bands: 20
+  freq_range: [100, 5000]
+  mode: single_channel_expansion
+
+bss:
+  method: SOBI
+  n_sources: 5
+  n_lags: 50
+
+feature_freqs:
+  BPFO: 107.3
+  BPFI: 162.2
+  BSF: 70.6

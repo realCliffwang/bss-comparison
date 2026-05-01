@@ -1,0 +1,25 @@
+# PHM 2010 铣削刀具磨损配置
+name: phm2010_experiment
+data_dir: data/phm2010_milling
+output_dir: outputs/phm2010
+
+preprocess:
+  detrend: true
+  bandpass: [100, 20000]
+  normalize: zscore
+
+tfa:
+  method: cwt
+  wavelet: cmor1.5-1.0
+  n_bands: 20
+  freq_range: [100, 20000]
+  mode: multi_channel
+  bands_per_ch: 7
+
+bss:
+  method: SOBI
+  n_sources: 6
+  n_lags: 50
+
+feature_freqs:
+  spindle: 173.3

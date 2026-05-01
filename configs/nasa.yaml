@@ -1,0 +1,24 @@
+# NASA 铣削数据集配置
+name: nasa_experiment
+data_dir: data/phm2010_milling
+output_dir: outputs/nasa_milling
+
+preprocess:
+  detrend: true
+  bandpass: [10, 100]
+  normalize: zscore
+
+tfa:
+  method: cwt
+  wavelet: cmor1.5-1.0
+  n_bands: 20
+  freq_range: [5, 100]
+  mode: multi_channel
+
+bss:
+  method: SOBI
+  n_sources: 5
+  n_lags: 50
+
+feature_freqs:
+  spindle: 166.7
