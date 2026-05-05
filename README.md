@@ -68,6 +68,17 @@ python -m experiments.comparison.wdcnn_vs_bss      # WDCNN vs BSS 对比（需 P
 ### 查看结果
 实验结果保存在 `outputs/` 目录，包含可视化图表（PNG, DPI=200）和 CSV 摘要。
 
+### 实验结果摘要
+
+详见 [`outputs/experiment_summary.md`](outputs/experiment_summary.md)。
+
+| 场景 | 推荐方法 | 指标 |
+|------|----------|------|
+| 有标签 + 小样本 (<100) | RF / LDA | 100% accuracy, 0.01s |
+| 有标签 + 大样本 | WDCNN | 96~99% accuracy |
+| 无标签 + 故障检测 | JADE + STFT | FFDS 最高 (10.94 / 14.46) |
+| 速度优先 | LDA | 0s 训练 |
+
 ### 生成报告
 
 ```python
@@ -100,14 +111,15 @@ BSS-test/
 │       ├── ml_classifier.py        # ML 分类器
 │       ├── dl_classifier.py        # DL 分类器（CNN/LSTM/Transformer）
 │       ├── wdcnn.py                # WDCNN 端到端原始信号分类器
-│       ├── metrics.py              # 评估指标（独立性、FFDS、SIR）
+│       ├── _torch_training.py      # 共享 PyTorch 训练循环
+│       ├── metrics.py              # 评估指标（独立性、FFDS、SIR、evaluate_bss）
 │       ├── visualization.py        # 绘图函数（学术论文风格）
 │       ├── evaluation.py           # 向后兼容 re-export（metrics + visualization）
 │       ├── report.py               # 报告生成（HTML/Markdown）
 │       ├── io/                     # 数据 I/O（cwru/phm/nasa）
 │       ├── tfa/                    # 时频分析（cwt/stft/wpt/emd）
 │       ├── bss/                    # 盲源分离（sobi/ica/jade）
-│       └── utils/                  # 工具（config/logger/exceptions/synthetic）
+│       └── utils/                  # 工具（config_types/config_io/logger/exceptions/synthetic）
 │
 ├── experiments/
 │   ├── _common.py                  # 共享工具函数
@@ -129,7 +141,7 @@ BSS-test/
 │
 ├── data/                           # 数据集目录（gitignore）
 ├── outputs/                        # 实验结果（gitignore）
-└── tests/                          # 测试文件（189 个）
+└── tests/                          # 测试文件（192 个）
 ```
 
 ## 评估指标
@@ -152,6 +164,8 @@ BSS-test/
 - `feature_freqs`: 故障特征频率（BPFO/BPFI/BSF）
 
 配置加载：`ExperimentConfig.from_yaml("configs/cwru.yaml")`，TFA 配置字段为 `config.tfa`。
+
+配置模块已拆分为 `config_types.py`（dataclass 定义）和 `config_io.py`（加载/保存/CLI），`config.py` 为向后兼容 re-export 层。
 
 ## 许可证
 
