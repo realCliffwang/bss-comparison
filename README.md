@@ -18,13 +18,25 @@
 - **6种BSS算法**: SOBI, FastICA, JADE, PICARD, NMF, PCA
 - **5种ML分类器**: SVM, Random Forest, XGBoost, KNN, LDA
 - **3种DL分类器**: 1D-CNN, LSTM, Transformer（可选 PyTorch）
+- **WDCNN 端到端分类器**: 直接处理原始振动信号，无需特征提取（可选 PyTorch）
 - **支持数据集**: CWRU, PHM 2010, NASA Milling
+- **报告生成**: 自包含 HTML 和 Markdown 实验报告
 
 ## 快速开始
 
 ### 安装依赖
 ```bash
 pip install -r requirements.txt
+```
+
+### 运行测试
+
+```bash
+# 运行所有测试（192 个）
+pytest tests/ -v
+
+# 带覆盖率
+pytest tests/ -v --cov=src --cov-report=html
 ```
 
 ### 运行实验
@@ -49,10 +61,25 @@ python -m experiments.comparison.phm_bss_methods   # PHM BSS 方法对比
 python -m experiments.comparison.phm_tfa_methods   # PHM TFA 方法对比
 python -m experiments.comparison.phm_classifiers   # PHM 分类器对比
 python -m experiments.comparison.dl_classifiers    # DL 分类器对比（需 PyTorch）
+python -m experiments.comparison.wdcnn_vs_traditional  # WDCNN vs 传统方法（需 PyTorch）
+python -m experiments.comparison.wdcnn_vs_bss      # WDCNN vs BSS 对比（需 PyTorch）
 ```
 
 ### 查看结果
 实验结果保存在 `outputs/` 目录，包含可视化图表（PNG, DPI=200）和 CSV 摘要。
+
+### 生成报告
+
+```python
+from bss_test.report import ExperimentReport
+
+report = ExperimentReport("实验报告", output_dir="outputs/my_experiment")
+report.add_text("实验概述", "使用 CWRU 轴承数据...")
+report.add_figure(fig, "包络谱对比")
+report.add_metrics_table(results, "分类器性能")
+report.to_html()      # → outputs/my_experiment/report.html
+report.to_markdown()  # → outputs/my_experiment/report.md
+```
 
 ## 项目结构
 
@@ -66,19 +93,24 @@ BSS-test/
 │
 ├── src/
 │   └── bss_test/                   # 主包
-│       ├── __init__.py
+│       ├── __init__.py             # 包入口，re-export 常用函数
 │       ├── types.py                # 类型定义
 │       ├── preprocessing.py        # 信号预处理
 │       ├── feature_extractor.py    # 特征提取
 │       ├── ml_classifier.py        # ML 分类器
 │       ├── dl_classifier.py        # DL 分类器（CNN/LSTM/Transformer）
-│       ├── evaluation.py           # 评估指标 + 可视化
+│       ├── wdcnn.py                # WDCNN 端到端原始信号分类器
+│       ├── metrics.py              # 评估指标（独立性、FFDS、SIR）
+│       ├── visualization.py        # 绘图函数（学术论文风格）
+│       ├── evaluation.py           # 向后兼容 re-export（metrics + visualization）
+│       ├── report.py               # 报告生成（HTML/Markdown）
 │       ├── io/                     # 数据 I/O（cwru/phm/nasa）
 │       ├── tfa/                    # 时频分析（cwt/stft/wpt/emd）
 │       ├── bss/                    # 盲源分离（sobi/ica/jade）
-│       └── utils/                  # 工具（config/logger/exceptions）
+│       └── utils/                  # 工具（config/logger/exceptions/synthetic）
 │
 ├── experiments/
+│   ├── _common.py                  # 共享工具函数
 │   ├── single/                     # 单数据集实验
 │   │   ├── cwru.py
 │   │   ├── phm_milling.py
@@ -90,12 +122,14 @@ BSS-test/
 │   │   ├── phm_bss_methods.py
 │   │   ├── phm_tfa_methods.py
 │   │   ├── phm_classifiers.py
-│   │   └── dl_classifiers.py
+│   │   ├── dl_classifiers.py
+│   │   ├── wdcnn_vs_traditional.py
+│   │   └── wdcnn_vs_bss.py
 │   └── reports/                    # 报告生成
 │
 ├── data/                           # 数据集目录（gitignore）
 ├── outputs/                        # 实验结果（gitignore）
-└── tests/                          # 测试文件
+└── tests/                          # 测试文件（189 个）
 ```
 
 ## 评估指标
@@ -116,6 +150,8 @@ BSS-test/
 - `tfa`: 时频分析参数（方法、小波、频带数、频率范围）
 - `bss`: BSS 参数（方法、源数量、时滞数）
 - `feature_freqs`: 故障特征频率（BPFO/BPFI/BSF）
+
+配置加载：`ExperimentConfig.from_yaml("configs/cwru.yaml")`，TFA 配置字段为 `config.tfa`。
 
 ## 许可证
 
