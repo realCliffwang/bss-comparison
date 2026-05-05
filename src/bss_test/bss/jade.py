@@ -2,8 +2,6 @@
 JADE (Joint Approximate Diagonalization of Eigenmatrices) 算法
 """
 
-import sys
-import os
 import numpy as np
 from typing import Tuple, Optional
 
@@ -20,7 +18,7 @@ def run_jade(
     """
     JADE (Joint Approximate Diagonalization of Eigenmatrices).
 
-    Uses jadeR from src/third_party/jadeR.py (Cardoso 1999).
+    Uses jadeR from bss_test.bss._jadeR (Cardoso 1999).
     GitHub ref: https://github.com/gbeckers/jadeR
 
     Parameters
@@ -38,22 +36,17 @@ def run_jade(
     A_est : ndarray (n_obs, n_sources) — mixing matrix: X ≈ A @ S
     W : ndarray (n_sources, n_obs) — demixing matrix: S = W @ X
     """
-    # Import jadeR from third_party
-    _THIRD_PARTY = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                "..", "..", "third_party")
-    if _THIRD_PARTY not in sys.path:
-        sys.path.insert(0, _THIRD_PARTY)
-    from jadeR import jadeR as _jadeR
+    from bss_test.bss._jadeR import jadeR as _jadeR
 
     n_obs, T = X.shape
     if n_sources is None:
         n_sources = n_obs
     n_sources = min(n_sources, n_obs)
 
-    W = _jadeR(X, m=n_sources, verbose=kwargs.get("verbose", False))  # (m, n)
+    W = _jadeR(X, m=n_sources, verbose=kwargs.get("verbose", False))
     W = np.asarray(W, dtype=np.float64)
     X_centered = X - np.mean(X, axis=1, keepdims=True)
-    S_est = W @ X_centered  # (n_sources, n_samples)
-    A_est = np.linalg.pinv(W)  # (n_obs, n_sources)
+    S_est = W @ X_centered
+    A_est = np.linalg.pinv(W)
 
     return S_est, A_est, W
