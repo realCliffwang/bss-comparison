@@ -4,16 +4,12 @@ Tests for BSS module.
 
 import numpy as np
 import pytest
-from src.bss_module import (
-    run_sobi,
-    run_fastica,
-    run_jade,
-    run_nmf,
-    run_pca,
-    run_bss,
-    bss_factory,
-    _joint_diagonalize_jacobi,
-)
+from bss_test.bss.sobi import run_sobi, _joint_diagonalize_jacobi
+from bss_test.bss.ica import run_fastica
+from bss_test.bss.jade import run_jade
+from bss_test.bss.nmf import run_nmf
+from bss_test.bss.pca import run_pca
+from bss_test.bss.factory import run_bss, bss_factory
 
 
 class TestSOBI:
@@ -179,7 +175,7 @@ class TestRunBSS:
     def test_invalid_method(self, sample_bss_mixture):
         """Test run_bss with invalid method."""
         _, X, _, _ = sample_bss_mixture
-        with pytest.raises(ValueError, match="Unknown BSS method"):
+        with pytest.raises(ValueError, match="未知的 BSS 方法"):
             run_bss(X, method="invalid")
 
 
@@ -216,3 +212,16 @@ class TestJointDiagonalize:
             # Off-diagonal should be small
             off_diag = result[np.eye(n) == 0]
             assert np.max(np.abs(off_diag)) < 0.1
+
+    def test_does_not_mutate_input(self):
+        """Test that joint diagonalization does not mutate input matrices."""
+        np.random.seed(42)
+        n = 3
+        K = 5
+        R_list = [np.random.randn(n, n) for _ in range(K)]
+        R_originals = [r.copy() for r in R_list]
+
+        _joint_diagonalize_jacobi(R_list, max_iter=50, tol=1e-6)
+
+        for orig, modified in zip(R_originals, R_list):
+            np.testing.assert_array_equal(orig, modified)

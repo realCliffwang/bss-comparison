@@ -134,6 +134,7 @@ def _joint_diagonalize_jacobi(
     K = len(R_list)
     n = R_list[0].shape[0]
     U = np.eye(n)
+    R_list = [r.copy() for r in R_list]
 
     for iteration in range(max_iter):
         max_angle = 0.0
