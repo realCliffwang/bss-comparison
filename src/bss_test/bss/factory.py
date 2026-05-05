@@ -86,26 +86,17 @@ def run_bss(
     **kwargs,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
-    统一 BSS 接口（兼容旧代码）
+    统一 BSS 接口（兼容旧代码，已弃用 — 请使用 bss_factory）
 
-    Parameters
-    ----------
-    X_for_bss : ndarray (n_obs, n_samples)
-        观测矩阵
-    method : str
-        "SOBI" | "FastICA" | "JADE" | "PICARD" | "NMF" | "PCA"
-    n_sources : int or None
-        源数量
-    **kwargs : dict
-        传递给具体 BSS 函数的参数
-
-    Returns
-    -------
-    S_est : ndarray (n_sources, n_samples)
-        估计源信号
-    W : ndarray (n_sources, n_obs) or None
-        分离矩阵
+    .. deprecated::
+        Use `bss_factory` instead, which returns (S_est, A_est, W).
     """
+    import warnings
+    warnings.warn(
+        "run_bss() is deprecated, use bss_factory() instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     sources, A_est, W = bss_factory(X_for_bss, method, n_components=n_sources,
                                      **kwargs)
     return sources, W

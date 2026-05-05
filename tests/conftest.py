@@ -108,14 +108,14 @@ def tmp_output_dir(tmp_path):
 @pytest.fixture
 def cwru_config():
     """Get CWRU test configuration."""
-    from src.config import get_config
+    from bss_test.utils.config import get_config
     return get_config("cwru")
 
 
 @pytest.fixture
 def preprocess_config():
     """Get preprocessing test configuration."""
-    from src.config import PreprocessConfig
+    from bss_test.utils.config import PreprocessConfig
     return PreprocessConfig(
         detrend=True,
         bandpass=(100, 5000),
@@ -126,8 +126,8 @@ def preprocess_config():
 @pytest.fixture
 def cwt_config():
     """Get CWT test configuration."""
-    from src.config import CWTConfig
-    return CWTConfig(
+    from bss_test.utils.config import TFAConfig
+    return TFAConfig(
         wavelet="cmor1.5-1.0",
         n_bands=10,
         freq_range=(100, 5000),
@@ -138,7 +138,7 @@ def cwt_config():
 @pytest.fixture
 def bss_config():
     """Get BSS test configuration."""
-    from src.config import BSSConfig
+    from bss_test.utils.config import BSSConfig
     return BSSConfig(
         method="SOBI",
         n_sources=3,

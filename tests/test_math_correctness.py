@@ -15,13 +15,10 @@ import numpy as np
 import pytest
 from scipy.stats import pearsonr
 
-from src.bss_module import (
-    run_sobi,
-    run_fastica,
-    run_jade,
-    run_pca,
-    _joint_diagonalize_jacobi,
-)
+from bss_test.bss.sobi import run_sobi, _joint_diagonalize_jacobi
+from bss_test.bss.ica import run_fastica
+from bss_test.bss.jade import run_jade
+from bss_test.bss.pca import run_pca
 
 
 def _correlation_matrix(S_true, S_est):

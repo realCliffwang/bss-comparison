@@ -12,6 +12,7 @@ from bss_test.evaluation import (
     compute_fault_detection_score,
 )
 from bss_test.utils.config import ExperimentConfig
+from bss_test.report import ExperimentReport
 from bss_test.utils.logger import get_logger, setup_logging
 from bss_test.utils.exceptions import (
     BSSTestError,

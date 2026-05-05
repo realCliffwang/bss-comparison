@@ -4,7 +4,7 @@ Tests for preprocessing module.
 
 import numpy as np
 import pytest
-from src.preprocessing import preprocess_signals, bandpass_filter
+from bss_test.preprocessing import preprocess_signals, bandpass_filter
 
 
 class TestPreprocessSignals:

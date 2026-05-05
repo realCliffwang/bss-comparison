@@ -11,11 +11,9 @@ Verifies:
 import numpy as np
 import pytest
 
-from src.cwt_module import (
-    cwt_transform,
-    stft_transform,
-    wpt_transform,
-)
+from bss_test.tfa.cwt import cwt_transform
+from bss_test.tfa.stft import stft_transform
+from bss_test.tfa.wpt import wpt_transform
 
 
 class TestCWTFrequencyAccuracy:
@@ -209,7 +207,7 @@ class TestWPTEnergyConservation:
 
     def test_wpt_normalized_features_sum_to_one(self):
         """Normalized WPT features should sum to approximately 1."""
-        from src.feature_extractor import extract_wpt_features
+        from bss_test.feature_extractor import extract_wpt_features
 
         np.random.seed(42)
         signal = np.random.randn(1024)

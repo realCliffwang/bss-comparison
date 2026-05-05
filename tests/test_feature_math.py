@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from scipy.stats import kurtosis as sp_kurtosis, skew as sp_skewness
 
-from src.feature_extractor import (
+from bss_test.feature_extractor import (
     extract_time_domain_features,
     extract_freq_domain_features,
     extract_features,

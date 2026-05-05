@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 from scipy.signal import freqz
 
-from src.preprocessing import (
+from bss_test.preprocessing import (
     preprocess_signals,
     bandpass_filter,
     detrend_signal,

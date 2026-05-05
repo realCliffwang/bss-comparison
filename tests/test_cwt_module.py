@@ -4,14 +4,10 @@ Tests for CWT/TFA module.
 
 import numpy as np
 import pytest
-from src.cwt_module import (
-    cwt_transform,
-    cwt_transform_multichannel,
-    build_observation_matrix,
-    stft_transform,
-    wpt_transform,
-    time_freq_factory,
-)
+from bss_test.tfa.cwt import cwt_transform, cwt_transform_multichannel
+from bss_test.tfa.factory import build_observation_matrix, time_freq_factory
+from bss_test.tfa.stft import stft_transform
+from bss_test.tfa.wpt import wpt_transform
 
 
 class TestCWTTransform:
@@ -218,5 +214,5 @@ class TestTimeFreqFactory:
     def test_invalid_method(self, sample_signal_1d):
         """Test factory with invalid method raises error."""
         fs = 1000
-        with pytest.raises(ValueError, match="Unknown TFA method"):
+        with pytest.raises(ValueError, match="未知的 TFA 方法"):
             time_freq_factory(sample_signal_1d, fs, method="invalid")

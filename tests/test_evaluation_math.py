@@ -11,7 +11,7 @@ Verifies:
 import numpy as np
 import pytest
 
-from src.evaluation import (
+from bss_test.evaluation import (
     compute_metrics,
     compute_independence_metric,
     compute_fault_detection_score,

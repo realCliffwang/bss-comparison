@@ -4,7 +4,7 @@ Tests for utility functions.
 
 import numpy as np
 import pytest
-from src.utils import generate_synthetic_mixture, generate_phm_like_cut
+from bss_test.utils.synthetic import generate_synthetic_mixture, generate_phm_like_cut
 
 
 class TestGenerateSyntheticMixture:

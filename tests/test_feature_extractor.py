@@ -4,7 +4,7 @@ Tests for feature extraction module.
 
 import numpy as np
 import pytest
-from src.feature_extractor import (
+from bss_test.feature_extractor import (
     extract_time_domain_features,
     extract_freq_domain_features,
     extract_wpt_features,

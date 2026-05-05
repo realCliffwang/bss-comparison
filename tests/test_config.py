@@ -9,10 +9,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from src.config import (
+from bss_test.utils.config import (
     ExperimentConfig,
     PreprocessConfig,
-    CWTConfig,
+    TFAConfig,
     BSSConfig,
     get_config,
     load_config,
@@ -41,7 +41,7 @@ class TestExperimentConfig:
         config = ExperimentConfig()
 
         assert isinstance(config.preprocess, PreprocessConfig)
-        assert isinstance(config.cwt, CWTConfig)
+        assert isinstance(config.tfa, TFAConfig)
         assert isinstance(config.bss, BSSConfig)
 
     def test_feature_freqs(self):
