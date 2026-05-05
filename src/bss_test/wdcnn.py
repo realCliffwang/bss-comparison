@@ -228,6 +228,7 @@ def train_wdcnn(
     _check_torch()
 
     from sklearn.preprocessing import LabelEncoder
+    from bss_test._torch_training import train_torch_model
 
     # Auto-detect input format: long signal vs pre-segmented
     if signals.ndim == 1 or (signals.ndim == 2 and signals.shape[0] < signals.shape[1]):
@@ -244,106 +245,28 @@ def train_wdcnn(
             f"Signal segments ({len(X_segments)}) and labels ({len(y_segments)}) count mismatch"
         )
 
-    # Encode labels
     le = LabelEncoder()
     y_encoded = le.fit_transform(y_segments)
     n_classes = len(le.classes_)
 
-    # Convert to tensors
-    X_tensor = torch.FloatTensor(X_segments)
-    y_tensor = torch.LongTensor(y_encoded)
-
-    # Split validation
-    n_val = max(1, int(len(X_segments) * validation_split))
-    indices = torch.randperm(len(X_segments))
-    val_indices = indices[:n_val]
-    train_indices = indices[n_val:]
-
-    X_val = X_tensor[val_indices]
-    y_val = y_tensor[val_indices]
-    X_train_split = X_tensor[train_indices]
-    y_train_split = y_tensor[train_indices]
-
-    # Create data loaders
-    train_dataset = TensorDataset(X_train_split, y_train_split)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-
-    # Set device
-    if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-    device = torch.device(device)
-
-    # Create model
     model = WDCNN(
         input_length=segment_length,
         n_classes=n_classes,
         **{k: v for k, v in kwargs.items()
            if k in ["filters", "kernel_sizes", "dropout", "n_channels"]}
     )
-    model = model.to(device)
 
-    # Loss and optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    result = train_torch_model(
+        model, X_segments, y_encoded,
+        n_epochs=n_epochs, batch_size=batch_size,
+        learning_rate=learning_rate, validation_split=validation_split,
+        device=device, model_name="WDCNN",
+    )
 
-    # Training loop
-    history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
-
-    logger.info(f"Training WDCNN on {device}")
-    logger.info(f"  Input shape: {X_segments.shape}, Classes: {n_classes}, Epochs: {n_epochs}")
-
-    for epoch in range(n_epochs):
-        model.train()
-        train_loss = 0.0
-        train_correct = 0
-        train_total = 0
-
-        for batch_X, batch_y in train_loader:
-            batch_X, batch_y = batch_X.to(device), batch_y.to(device)
-
-            optimizer.zero_grad()
-            outputs = model(batch_X)
-            loss = criterion(outputs, batch_y)
-            loss.backward()
-            optimizer.step()
-
-            train_loss += loss.item()
-            _, predicted = torch.max(outputs.data, 1)
-            train_total += batch_y.size(0)
-            train_correct += (predicted == batch_y).sum().item()
-
-        train_loss /= len(train_loader)
-        train_acc = train_correct / train_total
-
-        # Validation
-        model.eval()
-        with torch.no_grad():
-            X_val_device = X_val.to(device)
-            y_val_device = y_val.to(device)
-
-            val_outputs = model(X_val_device)
-            val_loss = criterion(val_outputs, y_val_device)
-            _, val_predicted = torch.max(val_outputs.data, 1)
-            val_acc = (val_predicted == y_val_device).sum().item() / len(y_val)
-
-        history["train_loss"].append(train_loss)
-        history["val_loss"].append(val_loss.item())
-        history["train_acc"].append(train_acc)
-        history["val_acc"].append(val_acc)
-
-        if (epoch + 1) % 10 == 0:
-            logger.info(f"  Epoch {epoch+1}/{n_epochs}: "
-                       f"train_loss={train_loss:.4f}, train_acc={train_acc:.4f}, "
-                       f"val_loss={val_loss.item():.4f}, val_acc={val_acc:.4f}")
-
-    # Attach metadata
-    model._label_encoder = le
-    model._method = "wdcnn"
-    model._device = device
-
-    logger.info(f"Training complete. Final val_acc={history['val_acc'][-1]:.4f}")
-
-    return {"model": model, "history": history}
+    result["model"]._label_encoder = le
+    result["model"]._method = "wdcnn"
+    result["model"]._device = next(result["model"].parameters()).device
+    return result
 
 
 def evaluate_wdcnn(
@@ -370,39 +293,5 @@ def evaluate_wdcnn(
          "predictions", "true_labels", "label_names"}
     """
     _check_torch()
-
-    nn_model = model["model"]
-    le = nn_model._label_encoder
-    device = nn_model._device
-
-    # Encode labels
-    y_encoded = le.transform(y_test)
-
-    # Convert to tensors
-    X_tensor = torch.FloatTensor(X_test).to(device)
-    y_tensor = torch.LongTensor(y_encoded).to(device)
-
-    # Evaluate
-    nn_model.eval()
-    with torch.no_grad():
-        outputs = nn_model(X_tensor)
-        _, predicted = torch.max(outputs.data, 1)
-
-    y_pred_encoded = predicted.cpu().numpy()
-    y_pred = le.inverse_transform(y_pred_encoded)
-
-    # Compute metrics
-    from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
-
-    accuracy = accuracy_score(y_test, y_pred)
-    f1_macro = f1_score(y_test, y_pred, average="macro")
-    cm = confusion_matrix(y_encoded, y_pred_encoded)
-
-    return {
-        "accuracy": accuracy,
-        "f1_macro": f1_macro,
-        "confusion_matrix": cm,
-        "predictions": y_pred,
-        "true_labels": y_test,
-        "label_names": list(le.classes_),
-    }
+    from bss_test._torch_training import evaluate_torch_model
+    return evaluate_torch_model(model, X_test, y_test)
