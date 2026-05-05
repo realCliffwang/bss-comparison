@@ -219,3 +219,63 @@ def emd_factory(
         return ceemdan_transform(signal, fs, **kwargs)
     else:
         raise ValueError(f"未知的 EMD 方法: {method}")
+
+
+def vmd_transform(
+    signal: np.ndarray,
+    fs: float,
+    n_modes: int = 5,
+    alpha: int = 2000,
+    tau: float = 0.0,
+    **kwargs,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Variational Mode Decomposition via vmdpy.
+
+    Parameters
+    ----------
+    signal : ndarray (n_samples,)
+        1D time-domain signal.
+    fs : float
+        Sampling rate in Hz.
+    n_modes : int
+        Number of modes (K) to decompose into.
+    alpha : int
+        Bandwidth constraint parameter.
+    tau : float
+        Noise-tolerance (0 for noise-free signal).
+
+    Returns
+    -------
+    matrix : ndarray (n_modes, n_samples)
+        VMD modes.
+    freq_axes : ndarray (n_modes,)
+        Mean frequency of each mode (Hz).
+    """
+    try:
+        from vmdpy import VMD
+    except ImportError:
+        raise ImportError(
+            "VMD requires vmdpy. Install with: pip install vmdpy\n"
+            "GitHub: https://github.com/vrcarva/vmdpy"
+        )
+
+    DC = kwargs.get("DC", 0)
+    init = kwargs.get("init", 1)
+    tol = kwargs.get("tol", 1e-7)
+
+    u, u_hat, omega = VMD(signal, alpha, tau, n_modes, DC, init, tol)
+
+    matrix = np.array(u, dtype=np.float64)
+
+    mean_freqs = np.zeros(n_modes)
+    for i in range(n_modes):
+        analytic = sp_hilbert(matrix[i])
+        phase = np.unwrap(np.angle(analytic))
+        if len(phase) > 1:
+            inst_freq = np.diff(phase) * fs / (2 * np.pi)
+            mean_freqs[i] = float(np.mean(np.abs(inst_freq)))
+        else:
+            mean_freqs[i] = 0.0
+
+    return matrix, mean_freqs
