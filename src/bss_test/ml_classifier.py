@@ -127,7 +127,7 @@ def train_classifier(X_train, y_train, method="svm", **kwargs):
             model = SVC(kernel="rbf", C=C_val, gamma=gamma_val,
                         probability=True, random_state=42)
             model.fit(X_scaled, y_enc)
-        elif n_samples < 20:
+        elif n_samples < 10:
             # Too few samples for GridSearchCV — use default params
             model = SVC(kernel="rbf", probability=True, random_state=42)
             model.fit(X_scaled, y_enc)
@@ -137,7 +137,7 @@ def train_classifier(X_train, y_train, method="svm", **kwargs):
                 "gamma": kwargs.get("gamma_grid", [1e-3, 1e-2, 0.1, 1.0]),
             }
             svc = SVC(kernel="rbf", probability=True, random_state=42)
-            model = GridSearchCV(svc, param_grid, cv=min(5, max(2, n_samples // 10)),
+            model = GridSearchCV(svc, param_grid, cv=min(5, max(2, n_samples // 5)),
                                   scoring="f1_macro", n_jobs=-1)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
