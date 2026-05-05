@@ -1,21 +1,30 @@
 """
-Deep Learning classifiers for vibration fault diagnosis.
+WDCNN (Wide Deep CNN) for raw vibration signal fault diagnosis.
 
-Supports:
-- 1D-CNN for raw signal classification
-- LSTM for sequence classification
-- Transformer for attention-based classification
+Reference:
+  Zhang, W., Peng, G., Li, C., Chen, Y., & Zhang, Z. (2017).
+  A new deep learning model for fault diagnosis with good anti-noise
+  and domain adaptation ability on raw vibration signals.
+  Sensors, 17(2), 425.
+
+Architecture:
+  Wide first conv layer (kernel=64, stride=16) captures low-frequency
+ 冲击 features. Deep subsequent layers (kernel=3) extract high-level
+  semantic features. BatchNorm + Dropout for regularization.
 
 Note: Requires PyTorch. Install with:
     pip install torch>=2.0.0
 
 Usage:
-    from bss_test.dl_classifier import train_dl_classifier, evaluate_dl_classifier
-    model = train_dl_classifier(X_train, y_train, method="cnn")
-    metrics = evaluate_dl_classifier(model, X_test, y_test)
+    from bss_test.wdcnn import train_wdcnn, evaluate_wdcnn, segment_signals
+
+    # From raw signals
+    X_seg, y_seg = segment_signals(signals, labels)
+    result = train_wdcnn(X_seg, y_seg)
+    metrics = evaluate_wdcnn(result, X_test, y_test)
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -24,7 +33,6 @@ from bss_test.utils.exceptions import ClassifierError
 
 logger = get_logger(__name__)
 
-# Check if PyTorch is available
 try:
     import torch
     import torch.nn as nn
@@ -39,159 +47,137 @@ def _check_torch():
     """Check if PyTorch is available."""
     if not TORCH_AVAILABLE:
         raise ImportError(
-            "PyTorch is required for deep learning classifiers. "
+            "PyTorch is required for WDCNN. "
             "Install with: pip install torch>=2.0.0"
         )
 
 
 if TORCH_AVAILABLE:
 
-    class CNN1D(nn.Module):
-        """1D Convolutional Neural Network for signal classification."""
+    class WDCNN(nn.Module):
+        """Wide Deep CNN for raw 1D vibration signal classification."""
 
         def __init__(
             self,
-            input_length: int,
-            n_classes: int,
+            input_length: int = 1024,
+            n_classes: int = 4,
             n_channels: int = 1,
+            dropout: float = 0.5,
             filters: List[int] = None,
             kernel_sizes: List[int] = None,
-            dropout: float = 0.5,
         ):
             super().__init__()
 
             if filters is None:
-                filters = [32, 64, 128]
+                filters = [64, 32, 64, 128, 128]
             if kernel_sizes is None:
-                kernel_sizes = [7, 5, 3]
+                kernel_sizes = [64, 3, 3, 3, 3]
 
-            layers = []
-            in_channels = n_channels
+            # Wide first layer
+            self.wide = nn.Sequential(
+                nn.Conv1d(n_channels, filters[0], kernel_sizes[0], stride=16),
+                nn.BatchNorm1d(filters[0]),
+                nn.ReLU(),
+                nn.MaxPool1d(2),
+            )
 
-            for out_channels, kernel_size in zip(filters, kernel_sizes):
-                layers.extend([
+            # Deep layers
+            deep_layers = []
+            in_channels = filters[0]
+            for out_channels, kernel_size in zip(filters[1:], kernel_sizes[1:]):
+                deep_layers.extend([
                     nn.Conv1d(in_channels, out_channels, kernel_size, padding=kernel_size // 2),
                     nn.BatchNorm1d(out_channels),
                     nn.ReLU(),
                     nn.MaxPool1d(2),
                 ])
                 in_channels = out_channels
+            self.deep = nn.Sequential(*deep_layers)
 
-            self.features = nn.Sequential(*layers)
+            # Classifier head
             self.classifier = nn.Sequential(
                 nn.AdaptiveAvgPool1d(1),
                 nn.Flatten(),
                 nn.Dropout(dropout),
-                nn.Linear(filters[-1], 64),
-                nn.ReLU(),
-                nn.Dropout(dropout),
-                nn.Linear(64, n_classes),
+                nn.Linear(filters[-1], n_classes),
             )
 
         def forward(self, x):
             if x.dim() == 2:
                 x = x.unsqueeze(1)  # Add channel dimension
-            x = self.features(x)
-            x = self.classifier(x)
-            return x
-
-    class LSTMClassifier(nn.Module):
-        """LSTM-based classifier for sequence classification."""
-
-        def __init__(
-            self,
-            input_size: int,
-            n_classes: int,
-            hidden_size: int = 64,
-            num_layers: int = 2,
-            dropout: float = 0.5,
-            bidirectional: bool = True,
-        ):
-            super().__init__()
-
-            self.lstm = nn.LSTM(
-                input_size=input_size,
-                hidden_size=hidden_size,
-                num_layers=num_layers,
-                batch_first=True,
-                dropout=dropout if num_layers > 1 else 0,
-                bidirectional=bidirectional,
-            )
-
-            fc_input_size = hidden_size * 2 if bidirectional else hidden_size
-            self.classifier = nn.Sequential(
-                nn.Dropout(dropout),
-                nn.Linear(fc_input_size, 64),
-                nn.ReLU(),
-                nn.Dropout(dropout),
-                nn.Linear(64, n_classes),
-            )
-
-        def forward(self, x):
-            if x.dim() == 2:
-                x = x.unsqueeze(-1)  # Add feature dimension
-            lstm_out, _ = self.lstm(x)
-            # Use last hidden state
-            x = lstm_out[:, -1, :]
-            x = self.classifier(x)
-            return x
-
-    class TransformerClassifier(nn.Module):
-        """Transformer-based classifier for signal classification."""
-
-        def __init__(
-            self,
-            input_size: int,
-            n_classes: int,
-            d_model: int = 64,
-            nhead: int = 4,
-            num_layers: int = 2,
-            dropout: float = 0.1,
-        ):
-            super().__init__()
-
-            self.input_projection = nn.Linear(input_size, d_model)
-            self.pos_encoding = nn.Parameter(torch.randn(1, 1000, d_model))
-
-            encoder_layer = nn.TransformerEncoderLayer(
-                d_model=d_model,
-                nhead=nhead,
-                dim_feedforward=d_model * 4,
-                dropout=dropout,
-                batch_first=True,
-            )
-            self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-
-            self.classifier = nn.Sequential(
-                nn.AdaptiveAvgPool1d(1),
-                nn.Flatten(),
-                nn.Linear(d_model, n_classes),
-            )
-
-        def forward(self, x):
-            if x.dim() == 2:
-                x = x.unsqueeze(-1)  # Add feature dimension
-
-            # Project to d_model dimensions
-            x = self.input_projection(x)
-
-            # Add positional encoding
-            seq_len = x.size(1)
-            x = x + self.pos_encoding[:, :seq_len, :]
-
-            # Transformer encoding
-            x = self.transformer(x)
-
-            # Pool and classify
-            x = x.permute(0, 2, 1)  # (batch, d_model, seq_len)
+            x = self.wide(x)
+            x = self.deep(x)
             x = self.classifier(x)
             return x
 
 
-def train_dl_classifier(
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    method: str = "cnn",
+def segment_signals(
+    signals: np.ndarray,
+    labels: np.ndarray,
+    segment_length: int = 1024,
+    overlap: float = 0.5,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Segment long signals into fixed-length windows with overlap.
+
+    Parameters
+    ----------
+    signals : ndarray (n_channels, n_samples) or (n_samples,)
+        Raw vibration signal(s).
+    labels : ndarray
+        Label for each signal (or single label if 1D input).
+    segment_length : int
+        Length of each segment in samples.
+    overlap : float
+        Overlap ratio between consecutive segments (0 to 1).
+
+    Returns
+    -------
+    X_segments : ndarray (n_segments, segment_length)
+        Segmented signals.
+    y_segments : ndarray (n_segments,)
+        Labels for each segment.
+
+    Raises
+    ------
+    ValueError
+        If signal length is less than segment_length.
+    """
+    if signals.ndim == 1:
+        signals = signals.reshape(1, -1)
+
+    n_channels, n_samples = signals.shape
+
+    if n_samples < segment_length:
+        raise ValueError(
+            f"Signal length ({n_samples}) must be >= segment_length ({segment_length})"
+        )
+
+    step = int(segment_length * (1 - overlap))
+    if step < 1:
+        step = 1
+
+    segments = []
+    seg_labels = []
+
+    for ch in range(n_channels):
+        sig = signals[ch]
+        label = labels[ch] if len(labels) > 1 else labels[0]
+
+        start = 0
+        while start + segment_length <= n_samples:
+            segments.append(sig[start:start + segment_length])
+            seg_labels.append(label)
+            start += step
+
+    return np.array(segments), np.array(seg_labels)
+
+
+def train_wdcnn(
+    signals: np.ndarray,
+    labels: np.ndarray,
+    segment_length: int = 1024,
+    overlap: float = 0.5,
     n_epochs: int = 50,
     batch_size: int = 32,
     learning_rate: float = 0.001,
@@ -200,16 +186,20 @@ def train_dl_classifier(
     **kwargs,
 ) -> dict:
     """
-    Train a deep learning classifier.
+    Train a WDCNN classifier on raw vibration signals.
 
     Parameters
     ----------
-    X_train : ndarray (n_samples, n_features)
-        Training features.
-    y_train : ndarray (n_samples,)
-        Training labels.
-    method : str
-        Model architecture: "cnn", "lstm", "transformer"
+    signals : ndarray
+        Raw signals. Shape (n_segments, segment_length) for pre-segmented
+        data, or (n_channels, n_samples) for long signals that will be
+        segmented internally.
+    labels : ndarray
+        Labels corresponding to signals.
+    segment_length : int
+        Segment length for signal segmentation (used only if input is long signal).
+    overlap : float
+        Overlap ratio (used only if input is long signal).
     n_epochs : int
         Number of training epochs.
     batch_size : int
@@ -217,39 +207,55 @@ def train_dl_classifier(
     learning_rate : float
         Learning rate.
     validation_split : float
-        Fraction of data to use for validation.
+        Fraction of data for validation.
     device : str or None
-        Device to use ("cpu" or "cuda"). If None, auto-detects.
+        Device ("cpu" or "cuda"). If None, auto-detects.
     **kwargs :
-        Additional model-specific parameters.
+        Additional model parameters (filters, kernel_sizes, dropout).
 
     Returns
     -------
     dict
-        Trained model and training history.
+        {"model": model_dict, "history": history_dict}
 
     Raises
     ------
     ImportError
         If PyTorch is not installed.
-    ClassifierError
-        If training fails.
+    ValueError
+        If labels and signals have mismatched counts.
     """
     _check_torch()
 
-    # Encode labels
     from sklearn.preprocessing import LabelEncoder
+
+    # Auto-detect input format: long signal vs pre-segmented
+    if signals.ndim == 1 or (signals.ndim == 2 and signals.shape[0] < signals.shape[1]):
+        logger.info("Input detected as long signal, segmenting...")
+        X_segments, y_segments = segment_signals(
+            signals, labels, segment_length=segment_length, overlap=overlap
+        )
+    else:
+        X_segments = signals
+        y_segments = labels
+
+    if len(X_segments) != len(y_segments):
+        raise ValueError(
+            f"Signal segments ({len(X_segments)}) and labels ({len(y_segments)}) count mismatch"
+        )
+
+    # Encode labels
     le = LabelEncoder()
-    y_encoded = le.fit_transform(y_train)
+    y_encoded = le.fit_transform(y_segments)
     n_classes = len(le.classes_)
 
     # Convert to tensors
-    X_tensor = torch.FloatTensor(X_train)
+    X_tensor = torch.FloatTensor(X_segments)
     y_tensor = torch.LongTensor(y_encoded)
 
     # Split validation
-    n_val = int(len(X_train) * validation_split)
-    indices = torch.randperm(len(X_train))
+    n_val = max(1, int(len(X_segments) * validation_split))
+    indices = torch.randperm(len(X_segments))
     val_indices = indices[:n_val]
     train_indices = indices[n_val:]
 
@@ -268,30 +274,12 @@ def train_dl_classifier(
     device = torch.device(device)
 
     # Create model
-    input_size = X_train.shape[1]
-    method = method.lower()
-
-    if method == "cnn":
-        model = CNN1D(
-            input_length=input_size,
-            n_classes=n_classes,
-            **{k: v for k, v in kwargs.items() if k in ["filters", "kernel_sizes", "dropout"]}
-        )
-    elif method == "lstm":
-        model = LSTMClassifier(
-            input_size=1,
-            n_classes=n_classes,
-            **{k: v for k, v in kwargs.items() if k in ["hidden_size", "num_layers", "dropout"]}
-        )
-    elif method == "transformer":
-        model = TransformerClassifier(
-            input_size=1,
-            n_classes=n_classes,
-            **{k: v for k, v in kwargs.items() if k in ["d_model", "nhead", "num_layers", "dropout"]}
-        )
-    else:
-        raise ClassifierError(f"Unknown DL method: {method}. Use 'cnn', 'lstm', or 'transformer'")
-
+    model = WDCNN(
+        input_length=segment_length,
+        n_classes=n_classes,
+        **{k: v for k, v in kwargs.items()
+           if k in ["filters", "kernel_sizes", "dropout", "n_channels"]}
+    )
     model = model.to(device)
 
     # Loss and optimizer
@@ -301,11 +289,10 @@ def train_dl_classifier(
     # Training loop
     history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
 
-    logger.info(f"Training {method.upper()} classifier on {device}")
-    logger.info(f"  Input shape: {X_train.shape}, Classes: {n_classes}, Epochs: {n_epochs}")
+    logger.info(f"Training WDCNN on {device}")
+    logger.info(f"  Input shape: {X_segments.shape}, Classes: {n_classes}, Epochs: {n_epochs}")
 
     for epoch in range(n_epochs):
-        # Training
         model.train()
         train_loss = 0.0
         train_correct = 0
@@ -351,7 +338,7 @@ def train_dl_classifier(
 
     # Attach metadata
     model._label_encoder = le
-    model._method = method
+    model._method = "wdcnn"
     model._device = device
 
     logger.info(f"Training complete. Final val_acc={history['val_acc'][-1]:.4f}")
@@ -359,27 +346,28 @@ def train_dl_classifier(
     return {"model": model, "history": history}
 
 
-def evaluate_dl_classifier(
+def evaluate_wdcnn(
     model: dict,
     X_test: np.ndarray,
     y_test: np.ndarray,
 ) -> Dict:
     """
-    Evaluate a trained deep learning classifier.
+    Evaluate a trained WDCNN classifier.
 
     Parameters
     ----------
     model : dict
-        Model dictionary from train_dl_classifier.
-    X_test : ndarray (n_samples, n_features)
-        Test features.
+        Model dictionary from train_wdcnn.
+    X_test : ndarray (n_samples, segment_length)
+        Test signal segments.
     y_test : ndarray (n_samples,)
         Test labels.
 
     Returns
     -------
     dict
-        Evaluation metrics.
+        {"accuracy", "f1_macro", "confusion_matrix",
+         "predictions", "true_labels", "label_names"}
     """
     _check_torch()
 
